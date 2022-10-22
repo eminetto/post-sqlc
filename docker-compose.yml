@@ -1,0 +1,14 @@
+version: "3"
+services:
+  mysql:
+    image: mariadb:latest
+    command: --default-authentication-plugin=mysql_native_password
+    environment:
+      MYSQL_ROOT_PASSWORD: db-root-password
+      MYSQL_DATABASE: post-sqlc
+      MYSQL_USER: post-sqlc
+      MYSQL_PASSWORD: post-sqlc
+    ports:
+      - "3306:3306"
+    container_name: post-sqlc-mysql
+    network_mode: "bridge"

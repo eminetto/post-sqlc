@@ -1,0 +1,9 @@
+version: "2"
+sql:
+  - schema: "person/schema.sql"
+    queries: "person/query.sql"
+    engine: "mysql"
+    gen:
+      go:
+        package: "db"
+        out: "person/db"
