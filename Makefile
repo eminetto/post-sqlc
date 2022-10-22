@@ -5,13 +5,13 @@ mod:
 	go mod download
 
 test: clean generate-mocks sqlc-generate
-	go test -short -coverprofile=cp.out ./...
+	go test -v -coverprofile=cp.out ./...
 
 sqlc-generate:
 	@sqlc generate
 
 generate-mocks:
-	@mockery --output person/mocks --dir person/ --name UseCase
+	@mockery --output person/mocks --dir person/ --all
 
 clean:
 	@rm -rf person/mocks/*

@@ -2,6 +2,7 @@ package person_test
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"testing"
@@ -10,6 +11,7 @@ import (
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/eminetto/post-sqlc/person"
 	"github.com/eminetto/post-sqlc/person/db"
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -47,6 +49,24 @@ func TestService_Get(t *testing.T) {
 		assert.Nil(t, found)
 		assert.Errorf(t, err, "erro lendo person do repositório: %w")
 	})
+}
+
+func TestCreateWithSQLMock(t *testing.T) {
+	d, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+	}
+	defer d.Close()
+	firstName := "Ozzy"
+	lastName := "Osbourne"
+	mock.ExpectExec("[A-Za-z]?insert into person").
+		WithArgs(firstName, lastName).
+		WillReturnResult(sqlmock.NewResult(1, 1))
+	queries := db.New(d)
+	service := person.NewService(queries)
+	id, err := service.Create(context.TODO(), firstName, lastName)
+	assert.Nil(t, err)
+	assert.Equal(t, person.ID(1), id)
 }
 
 func TestService_Search(t *testing.T) {
@@ -155,22 +175,66 @@ func TestService_Search(t *testing.T) {
 	}
 }
 
-func TestCreate(t *testing.T) {
-	d, mock, err := sqlmock.New()
+func TestGetWithContainer(t *testing.T) {
+	ctx := context.Background()
+
+	container, err := person.SetupMysql(ctx)
 	if err != nil {
-		t.Fatalf("an error '%s' was not expected when opening a stub database connection", err)
+		t.Fatal(err)
+	}
+	defer container.Terminate(ctx)
+	d, err := sql.Open("mysql", container.URI)
+	if err != nil {
+		t.Error(err)
 	}
 	defer d.Close()
+	err = person.InitMySQL(ctx, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer person.TruncateMySQL(ctx, d)
+
 	firstName := "Ozzy"
 	lastName := "Osbourne"
-	// mock.ExpectBegin()
-	mock.ExpectExec("[A-Za-z]?insert into person").
-		WithArgs(firstName, lastName).
-		WillReturnResult(sqlmock.NewResult(1, 1))
-	// mock.ExpectCommit()
-	queries := db.New(d)
-	service := person.NewService(queries)
-	id, err := service.Create(context.TODO(), firstName, lastName)
+
+	q := db.New(d)
+	s := person.NewService(q)
+
+	id, err := s.Create(context.TODO(), firstName, lastName)
+	assert.Nil(t, err)
+
+	saved, err := s.Get(context.TODO(), id)
+	assert.Nil(t, err)
+	assert.Equal(t, firstName, saved.Name)
+	assert.Equal(t, lastName, saved.LastName)
+}
+
+func TestCreateWithContainer(t *testing.T) {
+	ctx := context.Background()
+
+	container, err := person.SetupMysql(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer container.Terminate(ctx)
+	d, err := sql.Open("mysql", container.URI)
+	if err != nil {
+		t.Error(err)
+	}
+	defer d.Close()
+	err = person.InitMySQL(ctx, d)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer person.TruncateMySQL(ctx, d)
+
+	firstName := "Ozzy"
+	lastName := "Osbourne"
+
+	q := db.New(d)
+	s := person.NewService(q)
+
+	id, err := s.Create(context.TODO(), firstName, lastName)
 	assert.Nil(t, err)
 	assert.Equal(t, person.ID(1), id)
 }
